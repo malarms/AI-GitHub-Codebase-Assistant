@@ -16,6 +16,22 @@ def parse_python_file(file_path: Path) -> list[dict]:
         if code is None:
             return
 
+        is_stub = False
+
+        if isinstance(
+            node,
+            (ast.FunctionDef, ast.AsyncFunctionDef),
+        ):
+            if len(node.body) == 1:
+                statement = node.body[0]
+
+                if (
+                    isinstance(statement, ast.Expr)
+                    and isinstance(statement.value, ast.Constant)
+                    and statement.value.value is Ellipsis
+                ):
+                    is_stub = True
+
         chunks.append(
             {
                 "file": str(file_path),
@@ -25,13 +41,17 @@ def parse_python_file(file_path: Path) -> list[dict]:
                 "parent": parent,
                 "start_line": node.lineno,
                 "end_line": node.end_lineno,
+                "is_stub": is_stub,
                 "code": code,
             }
         )
 
     for node in tree.body:
 
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(
+            node,
+            (ast.FunctionDef, ast.AsyncFunctionDef),
+        ):
 
             symbol_type = (
                 "async_function"
@@ -43,13 +63,11 @@ def parse_python_file(file_path: Path) -> list[dict]:
 
         elif isinstance(node, ast.ClassDef):
 
-            create_chunk(node, "class")
-
             for child in node.body:
 
                 if isinstance(
                     child,
-                    (ast.FunctionDef, ast.AsyncFunctionDef)
+                    (ast.FunctionDef, ast.AsyncFunctionDef),
                 ):
 
                     symbol_type = (
