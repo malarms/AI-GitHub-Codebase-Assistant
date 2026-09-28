@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from qdrant_client.models import PointStruct
 
 from app.ingestion.github import discover_files
@@ -5,11 +7,8 @@ from app.ingestion.parser import parse_python_file
 from app.retrieval.embeddings import EmbeddingModel
 from app.retrieval.vector_db import VectorDB
 
-from pathlib import Path
-
 
 def build_index(repo_path: Path):
-
     embedding_model = EmbeddingModel()
     vector_db = VectorDB()
 
@@ -18,7 +17,8 @@ def build_index(repo_path: Path):
     files = discover_files(repo_path)
 
     python_files = [
-        file for file in files
+        file
+        for file in files
         if file.suffix == ".py"
     ]
 
@@ -29,7 +29,15 @@ def build_index(repo_path: Path):
     print(f"Total chunks: {len(all_chunks)}")
 
     texts = [
-        chunk["code"]
+        f"""
+File: {chunk['file']}
+Symbol: {chunk['symbol']}
+Type: {chunk['symbol_type']}
+Lines: {chunk['start_line']}-{chunk['end_line']}
+
+Code:
+{chunk['code']}
+"""
         for chunk in all_chunks
     ]
 
@@ -46,7 +54,6 @@ def build_index(repo_path: Path):
     for i, (chunk, embedding) in enumerate(
         zip(all_chunks, embeddings)
     ):
-
         points.append(
             PointStruct(
                 id=i,
