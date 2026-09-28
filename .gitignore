@@ -1,0 +1,20 @@
+# Python virtual environment
+.venv/
+
+# Environment variables
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local repository data
+data/repos/
+data/index/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
