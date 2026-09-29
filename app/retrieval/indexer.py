@@ -3,7 +3,7 @@ from pathlib import Path
 from qdrant_client.models import PointStruct
 
 from app.ingestion.github import discover_files
-from app.ingestion.parser import parse_python_file
+from app.ingestion.parser import parse_code_file
 from app.retrieval.embeddings import EmbeddingModel
 from app.retrieval.vector_db import VectorDB
 
@@ -16,23 +16,35 @@ def build_index(repo_path: Path):
 
     files = discover_files(repo_path)
 
-    python_files = [
-        file
-        for file in files
-        if file.suffix == ".py"
-    ]
+    print(f"Files discovered: {len(files)}")
 
-    for file in python_files:
-        chunks = parse_python_file(file)
-        all_chunks.extend(chunks)
+    for file in files:
+        try:
+            chunks = parse_code_file(file)
+            all_chunks.extend(chunks)
 
-    print(f"Total chunks: {len(all_chunks)}")
+            print(
+                f"{file} -> "
+                f"{len(chunks)} chunks"
+            )
+
+        except Exception as e:
+            print(
+                f"Skipping {file}: {e}"
+            )
+
+    print(f"\nTotal code chunks: {len(all_chunks)}")
+
+    if not all_chunks:
+        raise ValueError("No code chunks were generated.")
 
     texts = [
         f"""
 File: {chunk['file']}
+Language: {chunk['language']}
 Symbol: {chunk['symbol']}
 Type: {chunk['symbol_type']}
+Parent: {chunk.get('parent') or 'None'}
 Lines: {chunk['start_line']}-{chunk['end_line']}
 
 Code:
@@ -64,6 +76,6 @@ Code:
 
     vector_db.insert(points)
 
-    print("Index created successfully.")
+    print("\nIndex created successfully.")
 
     return embedding_model, vector_db

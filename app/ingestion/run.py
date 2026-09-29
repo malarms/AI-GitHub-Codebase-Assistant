@@ -1,37 +1,39 @@
 from pathlib import Path
 
 from app.ingestion.github import discover_files
-from app.ingestion.parser import parse_python_file
+from app.ingestion.parser import parse_code_file
 
 
 REPO_PATH = Path("data/repos/requests")
 
+
 files = discover_files(REPO_PATH)
 
-python_files = [
-    file for file in files
-    if file.suffix == ".py"
-]
-
-print(f"Python files: {len(python_files)}")
+print(f"Files discovered: {len(files)}")
 
 total_chunks = 0
 
-for file in python_files:
+for file in files:
+    try:
+        chunks = parse_code_file(file)
 
-    chunks = parse_python_file(file)
-
-    total_chunks += len(chunks)
-
-    print(f"\n{file}")
-    print(f"Chunks: {len(chunks)}")
-
-    for chunk in chunks[:3]:
+        total_chunks += len(chunks)
 
         print(
-            f"  {chunk['symbol_type']}: "
-            f"{chunk['symbol']} "
-            f"({chunk['start_line']}-{chunk['end_line']})"
+            f"{file} -> "
+            f"{len(chunks)} chunks"
         )
+
+        for chunk in chunks[:3]:
+            print(
+                f"  {chunk['language']} | "
+                f"{chunk['symbol_type']} | "
+                f"{chunk['symbol']} | "
+                f"lines {chunk['start_line']}-{chunk['end_line']}"
+            )
+
+    except Exception as e:
+        print(f"  ERROR: {e}")
+
 
 print(f"\nTotal code chunks: {total_chunks}")

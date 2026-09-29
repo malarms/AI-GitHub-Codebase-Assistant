@@ -4,27 +4,21 @@ from pathlib import Path
 from rank_bm25 import BM25Okapi
 
 from app.ingestion.github import discover_files
-from app.ingestion.parser import parse_python_file
+from app.ingestion.parser import parse_code_file
 
 
 class BM25Retriever:
-
     def __init__(self, repo_path: Path):
-
         self.chunks = []
 
         files = discover_files(repo_path)
 
-        python_files = [
-            file
-            for file in files
-            if file.suffix == ".py"
-        ]
-
-        for file in python_files:
-            self.chunks.extend(
-                parse_python_file(file)
-            )
+        for file in files:
+            try:
+                chunks = parse_code_file(file)
+                self.chunks.extend(chunks)
+            except Exception as e:
+                print(f"Skipping {file}: {e}")
 
         documents = [
             self._chunk_to_text(chunk)
@@ -36,23 +30,19 @@ class BM25Retriever:
             for document in documents
         ]
 
-        self.bm25 = BM25Okapi(
-            tokenized_documents
-        )
+        self.bm25 = BM25Okapi(tokenized_documents)
 
     def _chunk_to_text(self, chunk: dict) -> str:
-
         return f"""
         file {chunk['file']}
+        language {chunk['language']}
         symbol {chunk['symbol']}
         parent {chunk.get('parent', '')}
         type {chunk['symbol_type']}
-        stub {chunk.get('is_stub', False)}
         code {chunk['code']}
         """
 
     def _tokenize(self, text: str) -> list[str]:
-
         text = text.lower()
 
         return re.findall(
