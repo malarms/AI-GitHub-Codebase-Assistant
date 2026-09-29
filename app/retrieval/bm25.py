@@ -14,11 +14,9 @@ class BM25Retriever:
         files = discover_files(repo_path)
 
         for file in files:
-            try:
-                chunks = parse_code_file(file)
-                self.chunks.extend(chunks)
-            except Exception as e:
-                print(f"Skipping {file}: {e}")
+            self.chunks.extend(parse_code_file(file))
+
+        print(f"BM25 chunks: {len(self.chunks)}")
 
         documents = [
             self._chunk_to_text(chunk)

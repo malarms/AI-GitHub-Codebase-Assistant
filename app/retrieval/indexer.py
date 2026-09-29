@@ -12,39 +12,31 @@ def build_index(repo_path: Path):
     embedding_model = EmbeddingModel()
     vector_db = VectorDB()
 
-    all_chunks = []
-
+    # Discover all supported repository files
     files = discover_files(repo_path)
 
     print(f"Files discovered: {len(files)}")
 
+    # Parse every file using the language-aware parser
+    all_chunks = []
+
     for file in files:
-        try:
-            chunks = parse_code_file(file)
-            all_chunks.extend(chunks)
+        chunks = parse_code_file(file)
+        all_chunks.extend(chunks)
 
-            print(
-                f"{file} -> "
-                f"{len(chunks)} chunks"
-            )
-
-        except Exception as e:
-            print(
-                f"Skipping {file}: {e}"
-            )
-
-    print(f"\nTotal code chunks: {len(all_chunks)}")
+    print(f"Total chunks: {len(all_chunks)}")
 
     if not all_chunks:
-        raise ValueError("No code chunks were generated.")
+        raise ValueError("No code chunks were found in the repository.")
 
+    # Convert chunks into embedding text
     texts = [
         f"""
 File: {chunk['file']}
 Language: {chunk['language']}
 Symbol: {chunk['symbol']}
 Type: {chunk['symbol_type']}
-Parent: {chunk.get('parent') or 'None'}
+Parent: {chunk.get('parent')}
 Lines: {chunk['start_line']}-{chunk['end_line']}
 
 Code:
@@ -53,14 +45,17 @@ Code:
         for chunk in all_chunks
     ]
 
+    # Generate embeddings
     print("Generating embeddings...")
 
     embeddings = embedding_model.embed(texts)
 
     vector_size = len(embeddings[0])
 
+    # Recreate Qdrant collection
     vector_db.create_collection(vector_size)
 
+    # Create Qdrant points
     points = []
 
     for i, (chunk, embedding) in enumerate(
@@ -74,8 +69,11 @@ Code:
             )
         )
 
+    # Insert into Qdrant
+    print("Uploading vectors to Qdrant...")
+
     vector_db.insert(points)
 
-    print("\nIndex created successfully.")
+    print("Index created successfully.")
 
     return embedding_model, vector_db

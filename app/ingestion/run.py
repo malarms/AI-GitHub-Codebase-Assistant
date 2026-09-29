@@ -4,7 +4,7 @@ from app.ingestion.github import discover_files
 from app.ingestion.parser import parse_code_file
 
 
-REPO_PATH = Path("data/repos/requests")
+REPO_PATH = Path("data/repos/multi-language-test")
 
 
 files = discover_files(REPO_PATH)

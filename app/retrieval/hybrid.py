@@ -6,16 +6,25 @@ from app.retrieval.bm25 import BM25Retriever
 
 
 class HybridRetriever:
-
-    def __init__(self, repo_path: Path):
-
-        self.embedding_model = EmbeddingModel()
-
-        self.vector_db = VectorDB()
-
-        self.bm25 = BM25Retriever(
-            repo_path
+    def __init__(
+        self,
+        repo_path: Path,
+        vector_db=None,
+        embedding_model=None,
+    ):
+        self.embedding_model = (
+            embedding_model
+            if embedding_model is not None
+            else EmbeddingModel()
         )
+
+        self.vector_db = (
+            vector_db
+            if vector_db is not None
+            else VectorDB()
+        )
+
+        self.bm25 = BM25Retriever(repo_path)
 
     def search(
         self,
@@ -26,31 +35,17 @@ class HybridRetriever:
         rrf_k: int = 60,
     ):
 
-        # -------------------------
-        # Dense retrieval
-        # -------------------------
-
-        query_vector = self.embedding_model.embed(
-            [query]
-        )[0]
+        query_vector = self.embedding_model.embed([query])[0]
 
         dense_results = self.vector_db.search(
             query_vector,
             limit=dense_k,
         )
 
-        # -------------------------
-        # BM25 retrieval
-        # -------------------------
-
         lexical_results = self.bm25.search(
             query,
             limit=lexical_k,
         )
-
-        # -------------------------
-        # RRF
-        # -------------------------
 
         scores = {}
         chunks = {}
@@ -59,12 +54,8 @@ class HybridRetriever:
             dense_results,
             start=1,
         ):
-
             chunk = result.payload
-
-            key = self._chunk_key(
-                chunk
-            )
+            key = self._chunk_key(chunk)
 
             chunks[key] = chunk
 
@@ -77,12 +68,8 @@ class HybridRetriever:
             lexical_results,
             start=1,
         ):
-
             chunk = result["chunk"]
-
-            key = self._chunk_key(
-                chunk
-            )
+            key = self._chunk_key(chunk)
 
             chunks[key] = chunk
 
@@ -106,7 +93,6 @@ class HybridRetriever:
         ]
 
     def _chunk_key(self, chunk):
-
         return (
             chunk["file"],
             chunk["start_line"],
