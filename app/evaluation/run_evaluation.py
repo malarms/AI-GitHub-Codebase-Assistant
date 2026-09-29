@@ -1,12 +1,7 @@
-from pathlib import Path
-
 from app.retrieval.embeddings import EmbeddingModel
 from app.retrieval.vector_db import VectorDB
-from app.retrieval.bm25 import BM25Retriever
-from app.retrieval.hybrid import HybridRetriever
 
 
-REPO_PATH = Path("data/repos/multi-language-test")
 K = 5
 
 
@@ -92,16 +87,21 @@ def is_relevant(result, relevant_files):
 
 
 def evaluate_results(results, relevant_files):
-    found = any(
-        is_relevant(result, relevant_files)
-        for result in results[:K]
-    )
+    top_results = results[:K]
 
-    recall = 1 if found else 0
+    recall = int(
+        any(
+            is_relevant(result, relevant_files)
+            for result in top_results
+        )
+    )
 
     reciprocal_rank = 0
 
-    for rank, result in enumerate(results[:K], start=1):
+    for rank, result in enumerate(
+        top_results,
+        start=1,
+    ):
         if is_relevant(result, relevant_files):
             reciprocal_rank = 1 / rank
             break
@@ -116,102 +116,60 @@ def main():
     embedding_model = EmbeddingModel()
     vector_db = VectorDB()
 
-    print("Building BM25...")
-    bm25 = BM25Retriever(REPO_PATH)
+    scores = []
 
-    hybrid = HybridRetriever(
-    REPO_PATH,
-    vector_db=vector_db,
-    embedding_model=embedding_model,
-    )
-
-    methods = {
-        "Dense": [],
-        "BM25": [],
-        "Hybrid": [],
-    }
-
-    for i, item in enumerate(BENCHMARK, start=1):
+    for i, item in enumerate(
+        BENCHMARK,
+        start=1,
+    ):
 
         question = item["question"]
         relevant_files = item["files"]
 
-        print(f"\n[{i}/{len(BENCHMARK)}] {question}")
+        print(
+            f"\n[{i}/{len(BENCHMARK)}] "
+            f"{question}"
+        )
 
         query_vector = embedding_model.embed(
             [question]
         )[0]
 
-        dense_results = vector_db.search(
+        results = vector_db.search(
             query_vector,
             limit=K,
         )
 
-        dense_results = [
+        results = [
             result.payload
-            for result in dense_results
+            for result in results
         ]
 
-        recall, mrr = evaluate_results(
-            dense_results,
-            relevant_files,
-        )
-
-        methods["Dense"].append((recall, mrr))
-
-        bm25_results = [
-            result["chunk"]
-            for result in bm25.search(
-                question,
-                limit=K,
+        scores.append(
+            evaluate_results(
+                results,
+                relevant_files,
             )
-        ]
-
-        recall, mrr = evaluate_results(
-            bm25_results,
-            relevant_files,
         )
 
-        methods["BM25"].append((recall, mrr))
+    recall = sum(
+        score[0]
+        for score in scores
+    ) / len(scores)
 
-        hybrid_results = hybrid.search(
-            question,
-            dense_k=10,
-            lexical_k=10,
-            final_k=K,
-        )
-
-        hybrid_results = [
-            result["chunk"]
-            for result in hybrid_results
-        ]
-
-        recall, mrr = evaluate_results(
-            hybrid_results,
-            relevant_files,
-        )
-
-        methods["Hybrid"].append((recall, mrr))
+    mrr = sum(
+        score[1]
+        for score in scores
+    ) / len(scores)
 
     print("\n" + "=" * 60)
-    print("RETRIEVAL EVALUATION")
+    print("DENSE RETRIEVAL EVALUATION")
     print("=" * 60)
 
-    for method, scores in methods.items():
-
-        recall = sum(
-            score[0] for score in scores
-        ) / len(scores)
-
-        mrr = sum(
-            score[1] for score in scores
-        ) / len(scores)
-
-        print(
-            f"{method:<10}"
-            f"Recall@5: {recall:.3f}   "
-            f"MRR: {mrr:.3f}"
-        )
+    print(
+        f"Recall@5: {recall:.3f}   "
+        f"MRR: {mrr:.3f}"
+    )
 
 
 if __name__ == "__main__":

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from app.retrieval.embeddings import EmbeddingModel
 from app.retrieval.vector_db import VectorDB
 from app.generation.llm import LLM
@@ -20,29 +18,35 @@ Rules:
 
 
 class RAGPipeline:
+
     def __init__(self):
         self.embedding_model = EmbeddingModel()
         self.vector_db = VectorDB()
         self.llm = LLM()
 
-    def ask(self, question: str, top_k: int = 5) -> str:
-
-        query_vector = self.embedding_model.embed([question])[0]
+    def ask(self, question, top_k=5):
+        query_vector = self.embedding_model.embed(
+            [question]
+        )[0]
 
         results = self.vector_db.search(
             query_vector,
             limit=top_k,
         )
 
+        chunks = [
+            result.payload
+            for result in results
+        ]
+
         context_parts = []
 
-        for i, result in enumerate(results, start=1):
-            chunk = result.payload
-
+        for i, chunk in enumerate(chunks, start=1):
             context_parts.append(
                 f"""
 SOURCE [{i}]
 File: {chunk['file']}
+Language: {chunk['language']}
 Symbol: {chunk['symbol']}
 Type: {chunk['symbol_type']}
 Lines: {chunk['start_line']}-{chunk['end_line']}
