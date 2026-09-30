@@ -445,9 +445,3 @@ Potential extensions include:
 - Authentication and rate limiting
 - Cloud vector database deployment
 - Larger-scale evaluation benchmarks
-
----
-
-## License
-
-This project is intended as a portfolio and engineering project.
